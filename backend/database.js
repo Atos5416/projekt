@@ -247,7 +247,7 @@ class Database {
   updateEquipment(id, name, description, contact, image) {
     return new Promise((resolve, reject) => {
       this.db.run(
-        'UPDATE equipment SET name = ?, description = ?, contact = ?, image = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+        'UPDATE equipment SET name = ?, description = ?, contact = ?, image = ?, created_at = CURRENT_TIMESTAMP WHERE id = ?',
         [name, description, contact, image, id],
         (err) => {
           if (err) reject(err);
