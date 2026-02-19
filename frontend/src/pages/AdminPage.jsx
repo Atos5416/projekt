@@ -1,332 +1,306 @@
 import { useState, useEffect } from 'react';
 import { Navigate } from 'react-router-dom';
-import { Container, Row, Col, Card, Button, Form, Alert, Table, Badge, Modal } from 'react-bootstrap';
 import axios from 'axios';
-import { Plus, Edit2, Trash2, Settings } from 'lucide-react';
+import { Plus, Edit2, Trash2, X } from 'lucide-react';
+
+const API = 'http://localhost:3000';
 
 function AdminPage({ user }) {
   const [equipment, setEquipment] = useState([]);
   const [showModal, setShowModal] = useState(false);
   const [editingId, setEditingId] = useState(null);
-  const [formData, setFormData] = useState({
-    name: '',
-    description: '',
-    contact: '',
-    image: null
-  });
+  const [form, setForm] = useState({ name: '', description: '', contact: '', image: null });
+  const [fileName, setFileName] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (user?.role === 'admin') {
-      loadEquipment();
-    }
+    if (user?.role === 'admin') load();
   }, [user]);
 
-  const loadEquipment = async () => {
+  const load = async () => {
     try {
       const res = await axios.get('/equipment');
       setEquipment(res.data);
-    } catch (err) {
-      console.error('Load equipment error:', err);
-      setError('Hiba történt a gépek betöltése során');
+    } catch {
+      setError('Nem sikerült betölteni a gépeket.');
     }
+  };
+
+  const set = (field) => (e) => setForm((f) => ({ ...f, [field]: e.target.value }));
+
+  const openNew = () => {
+    setForm({ name: '', description: '', contact: '', image: null });
+    setFileName('');
+    setEditingId(null);
+    setError('');
+    setSuccess('');
+    setShowModal(true);
+  };
+
+  const openEdit = (item) => {
+    setForm({ name: item.name, description: item.description, contact: item.contact, image: null });
+    setFileName('');
+    setEditingId(item.id);
+    setError('');
+    setSuccess('');
+    setShowModal(true);
+  };
+
+  const closeModal = () => {
+    setShowModal(false);
+    setEditingId(null);
+    setForm({ name: '', description: '', contact: '', image: null });
+    setFileName('');
+    setError('');
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
-    setSuccess('');
     setLoading(true);
 
     const data = new FormData();
-    data.append('name', formData.name.trim());
-    data.append('description', formData.description.trim());
-    data.append('contact', formData.contact.trim());
-    
-    // Ha van új kép, azt adjuk hozzá
-    if (formData.image && formData.image instanceof File) {
-      data.append('image', formData.image);
-    }
+    data.append('name', form.name.trim());
+    data.append('description', form.description.trim());
+    data.append('contact', form.contact.trim());
+    if (form.image instanceof File) data.append('image', form.image);
 
     try {
       if (editingId) {
         await axios.put(`/equipment/${editingId}`, data, {
           headers: { 'Content-Type': 'multipart/form-data' },
         });
-        setSuccess('Gép sikeresen módosítva!');
+        setSuccess('Gép sikeresen módosítva.');
       } else {
         await axios.post('/equipment', data, {
           headers: { 'Content-Type': 'multipart/form-data' },
         });
-        setSuccess('Gép sikeresen hozzáadva!');
+        setSuccess('Gép hozzáadva.');
       }
-      
-      setFormData({ name: '', description: '', contact: '', image: null });
-      setShowModal(false);
-      setEditingId(null);
-      loadEquipment();
-      
-      // Scroll to top to show success message
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-      
-      // Auto-hide success message after 3 seconds
+      closeModal();
+      load();
       setTimeout(() => setSuccess(''), 3000);
     } catch (err) {
-      console.error('Submit error:', err);
-      setError(err.response?.data?.error || 'Hiba történt a művelet során');
+      setError(err.response?.data?.error || 'Hiba történt.');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleEdit = (item) => {
-    setFormData({
-      name: item.name,
-      description: item.description,
-      contact: item.contact,
-      image: null
-    });
-    setEditingId(item.id);
-    setShowModal(true);
-    setError('');
-    setSuccess('');
-  };
-
-  const handleDelete = async (id) => {
-    if (!window.confirm('Biztosan törölni szeretnéd ezt a gépet?')) return;
-
+  const handleDelete = async (id, name) => {
+    if (!confirm(`Biztosan törlöd ezt: ${name}?`)) return;
     try {
       await axios.delete(`/equipment/${id}`);
-      setSuccess('Gép sikeresen törölve!');
-      loadEquipment();
+      setSuccess('Gép törölve.');
+      load();
       setTimeout(() => setSuccess(''), 3000);
-    } catch (err) {
-      console.error('Delete error:', err);
-      setError('Törlési hiba történt');
+    } catch {
+      setError('A törlés nem sikerült.');
     }
   };
 
-  const handleNewEquipment = () => {
-    setFormData({ name: '', description: '', contact: '', image: null });
-    setEditingId(null);
-    setShowModal(true);
-    setError('');
-    setSuccess('');
-  };
-
-  const handleCloseModal = () => {
-    setShowModal(false);
-    setFormData({ name: '', description: '', contact: '', image: null });
-    setEditingId(null);
-    setError('');
-  };
-
-  if (!user || user.role !== 'admin') {
-    return <Navigate to="/" />;
-  }
+  if (!user || user.role !== 'admin') return <Navigate to="/" />;
 
   return (
-    <Container className="py-4 py-md-5">
-      <Row className="mb-4">
-        <Col>
-          <div className="d-flex justify-content-between align-items-center flex-wrap gap-2">
-            <h2 className="fw-bold mb-0 text-white">
-              <Settings className="me-2" />
-              Gépek Kezelése
-            </h2>
-            <Button variant="primary" onClick={handleNewEquipment}>
-              <Plus size={20} className="me-2" />
-              Új Gép
-            </Button>
+    <main className="page">
+      <div className="container">
+        <div className="page-header">
+          <div className="page-header__top">
+            <h1 className="page-title">Gépkezelés</h1>
+            <button className="btn btn--primary" onClick={openNew}>
+              <Plus size={16} />
+              Új gép
+            </button>
           </div>
-        </Col>
-      </Row>
+        </div>
 
-      {error && (
-        <Alert variant="danger" dismissible onClose={() => setError('')}>
-          <strong>Hiba!</strong> {error}
-        </Alert>
-      )}
+        {error && <div className="alert alert--danger">{error}</div>}
+        {success && <div className="alert alert--success">{success}</div>}
 
-      {success && (
-        <Alert variant="success" dismissible onClose={() => setSuccess('')}>
-          <strong>Siker!</strong> {success}
-        </Alert>
-      )}
-
-      <Card className="shadow">
-        <Card.Body className="p-0">
-          <div className="table-responsive">
-            <Table hover className="mb-0">
-              <thead className="table-light">
+        <div className="card">
+          <div className="data-table-wrap">
+            <table className="data-table">
+              <thead>
                 <tr>
-                  <th style={{ width: '100px' }} className="d-none d-md-table-cell">Kép</th>
+                  <th>Kép</th>
                   <th>Név</th>
-                  <th className="d-none d-lg-table-cell">Leírás</th>
-                  <th className="d-none d-sm-table-cell">Elérhetőség</th>
-                  <th style={{ width: '120px' }}>Műveletek</th>
+                  <th>Leírás</th>
+                  <th>Elérhetőség</th>
+                  <th></th>
                 </tr>
               </thead>
               <tbody>
-                {equipment.map(item => {
-                  const imageUrl = item.image?.startsWith('http') 
-                    ? item.image 
-                    : `http://localhost:3000${item.image}`;
-                  
+                {equipment.map((item) => {
+                  const imgSrc = item.image?.startsWith('http')
+                    ? item.image
+                    : `${API}${item.image}`;
                   return (
                     <tr key={item.id}>
-                      <td className="d-none d-md-table-cell">
+                      <td>
                         {item.image ? (
                           <img
-                            src={imageUrl}
+                            className="thumb"
+                            src={imgSrc}
                             alt={item.name}
-                            style={{ width: '80px', height: '60px', objectFit: 'cover', borderRadius: '4px' }}
                             onError={(e) => {
-                              e.target.onerror = null;
-                              e.target.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="80" height="60"><text x="50%" y="50%" text-anchor="middle" dy=".3em" font-size="30">🚜</text></svg>';
+                              e.target.style.display = 'none';
+                              e.target.nextSibling.style.display = 'flex';
                             }}
                           />
-                        ) : (
-                          <div className="bg-secondary text-white d-flex align-items-center justify-content-center" 
-                               style={{ width: '80px', height: '60px', borderRadius: '4px' }}>
-                            🚜
-                          </div>
-                        )}
+                        ) : null}
+                        <div
+                          className="thumb-fallback"
+                          style={{ display: item.image ? 'none' : 'flex' }}
+                        >
+                          🚜
+                        </div>
                       </td>
-                      <td className="align-middle">
-                        <strong className="d-block">{item.name}</strong>
-                        <small className="text-muted d-sm-none">{item.contact}</small>
+                      <td>
+                        <strong style={{ fontSize: 14 }}>{item.name}</strong>
                       </td>
-                      <td className="align-middle d-none d-lg-table-cell">
-                        <small className="text-muted">
-                          {item.description.substring(0, 60)}...
-                        </small>
+                      <td style={{ maxWidth: 260 }}>
+                        <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>
+                          {item.description.length > 70
+                            ? item.description.slice(0, 70) + '...'
+                            : item.description}
+                        </span>
                       </td>
-                      <td className="align-middle d-none d-sm-table-cell">
-                        <Badge bg="success">{item.contact}</Badge>
+                      <td>
+                        <span style={{ fontSize: 13 }}>{item.contact}</span>
                       </td>
-                      <td className="align-middle">
-                        <div className="d-flex gap-1">
-                          <Button
-                            variant="outline-primary"
-                            size="sm"
-                            onClick={() => handleEdit(item)}
+                      <td>
+                        <div style={{ display: 'flex', gap: 6 }}>
+                          <button
+                            className="btn btn--outline btn--sm"
+                            onClick={() => openEdit(item)}
                             title="Szerkesztés"
                           >
-                            <Edit2 size={16} />
-                          </Button>
-                          <Button
-                            variant="outline-danger"
-                            size="sm"
-                            onClick={() => handleDelete(item.id)}
+                            <Edit2 size={14} />
+                          </button>
+                          <button
+                            className="btn btn--danger btn--sm"
+                            onClick={() => handleDelete(item.id, item.name)}
                             title="Törlés"
                           >
-                            <Trash2 size={16} />
-                          </Button>
+                            <Trash2 size={14} />
+                          </button>
                         </div>
                       </td>
                     </tr>
                   );
                 })}
               </tbody>
-            </Table>
-          </div>
+            </table>
 
-          {equipment.length === 0 && (
-            <Alert variant="info" className="text-center m-3 mb-0">
-              Még nincsenek hozzáadott gépek. Kattints az "Új Gép" gombra a hozzáadáshoz!
-            </Alert>
-          )}
-        </Card.Body>
-      </Card>
-
-      {/* Equipment Form Modal */}
-      <Modal show={showModal} onHide={handleCloseModal} size="lg" centered>
-        <Modal.Header closeButton>
-          <Modal.Title>
-            {editingId ? '✏️ Gép Szerkesztése' : '➕ Új Gép Hozzáadása'}
-          </Modal.Title>
-        </Modal.Header>
-        <Form onSubmit={handleSubmit}>
-          <Modal.Body>
-            {error && (
-              <Alert variant="danger" className="mb-3">
-                {error}
-              </Alert>
+            {equipment.length === 0 && (
+              <div className="empty-state">
+                <div className="empty-state__icon">🔧</div>
+                <p className="empty-state__text">Még nincs felvett gép</p>
+              </div>
             )}
-            
-            <Form.Group className="mb-3">
-              <Form.Label>Gép neve *</Form.Label>
-              <Form.Control
-                type="text"
-                placeholder="pl. CAT 320D Lánctalpas Kotrógép"
-                value={formData.name}
-                onChange={(e) => setFormData({...formData, name: e.target.value})}
-                required
-                minLength={3}
-              />
-            </Form.Group>
+          </div>
+        </div>
+      </div>
 
-            <Form.Group className="mb-3">
-              <Form.Label>Leírás *</Form.Label>
-              <Form.Control
-                as="textarea"
-                rows={4}
-                placeholder="Részletes leírás a gépről..."
-                value={formData.description}
-                onChange={(e) => setFormData({...formData, description: e.target.value})}
-                required
-              />
-            </Form.Group>
+      {showModal && (
+        <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && closeModal()}>
+          <div className="modal">
+            <div className="modal__header">
+              <span className="modal__title">
+                {editingId ? 'Gép szerkesztése' : 'Új gép felvétele'}
+              </span>
+              <button className="btn btn--ghost btn--sm" onClick={closeModal}>
+                <X size={18} />
+              </button>
+            </div>
 
-            <Form.Group className="mb-3">
-              <Form.Label>Elérhetőség *</Form.Label>
-              <Form.Control
-                type="text"
-                placeholder="pl. +36 30 123 4567"
-                value={formData.contact}
-                onChange={(e) => setFormData({...formData, contact: e.target.value})}
-                required
-              />
-            </Form.Group>
+            <form onSubmit={handleSubmit}>
+              <div className="modal__body">
+                {error && <div className="alert alert--danger">{error}</div>}
 
-            <Form.Group className="mb-3">
-              <Form.Label>Kép feltöltése</Form.Label>
-              <Form.Control
-                type="file"
-                accept="image/*"
-                onChange={(e) => setFormData({...formData, image: e.target.files[0]})}
-              />
-              <Form.Text className="text-muted">
-                Maximális fájlméret: 5MB. Támogatott formátumok: JPG, PNG, GIF, WebP
-              </Form.Text>
-              {formData.image && formData.image instanceof File && (
-                <Alert variant="success" className="mt-2 mb-0 py-2">
-                  <small>✅ Kiválasztott fájl: {formData.image.name}</small>
-                </Alert>
-              )}
-            </Form.Group>
-          </Modal.Body>
-          <Modal.Footer>
-            <Button variant="secondary" onClick={handleCloseModal} disabled={loading}>
-              Mégse
-            </Button>
-            <Button variant="primary" type="submit" disabled={loading}>
-              {loading ? (
-                <>
-                  <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-                  Mentés...
-                </>
-              ) : (
-                editingId ? '💾 Módosítás' : '➕ Hozzáadás'
-              )}
-            </Button>
-          </Modal.Footer>
-        </Form>
-      </Modal>
-    </Container>
+                <div className="form-group">
+                  <label className="form-label">Gép neve *</label>
+                  <input
+                    className="form-control"
+                    type="text"
+                    placeholder="pl. CAT 320D Lánctalpas Kotrógép"
+                    value={form.name}
+                    onChange={set('name')}
+                    required
+                    minLength={3}
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Leírás *</label>
+                  <textarea
+                    className="form-control"
+                    placeholder="Részletes leírás a gépről..."
+                    value={form.description}
+                    onChange={set('description')}
+                    required
+                    rows={4}
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Elérhetőség *</label>
+                  <input
+                    className="form-control"
+                    type="text"
+                    placeholder="pl. +36 30 123 4567"
+                    value={form.contact}
+                    onChange={set('contact')}
+                    required
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Kép feltöltése</label>
+                  <div className="file-input-wrap">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => {
+                        const f = e.target.files[0];
+                        if (f) {
+                          setForm((prev) => ({ ...prev, image: f }));
+                          setFileName(f.name);
+                        }
+                      }}
+                    />
+                    <div className={`file-input-display${fileName ? ' has-file' : ''}`}>
+                      {fileName || 'Kattints a fájl kiválasztásához — max. 5 MB'}
+                    </div>
+                  </div>
+                  <p className="form-hint">JPG, PNG, GIF, WebP formátumok támogatottak</p>
+                </div>
+              </div>
+
+              <div className="modal__footer">
+                <button
+                  type="button"
+                  className="btn btn--outline"
+                  onClick={closeModal}
+                  disabled={loading}
+                >
+                  Mégse
+                </button>
+                <button className="btn btn--primary" type="submit" disabled={loading}>
+                  {loading
+                    ? 'Mentés...'
+                    : editingId
+                    ? 'Módosítás mentése'
+                    : 'Gép hozzáadása'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </main>
   );
 }
 

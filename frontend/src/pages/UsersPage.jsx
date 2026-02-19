@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Navigate } from 'react-router-dom';
-import { Container, Row, Col, Card, Button, Table, Badge, Alert, Form } from 'react-bootstrap';
 import axios from 'axios';
-import { Users, Trash2, Shield } from 'lucide-react';
+import { Trash2, Shield } from 'lucide-react';
 
 function UsersPage({ user }) {
   const [users, setUsers] = useState([]);
@@ -11,195 +10,159 @@ function UsersPage({ user }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (user?.role === 'admin') {
-      loadUsers();
-    }
+    if (user?.role === 'admin') load();
   }, [user]);
 
-  const loadUsers = async () => {
+  const load = async () => {
     try {
       const res = await axios.get('/users');
       setUsers(res.data);
-      setError('');
-    } catch (err) {
-      console.error('Load users error:', err);
-      setError('Hiba történt a felhasználók betöltése során');
+    } catch {
+      setError('Nem sikerült betölteni a felhasználókat.');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleDelete = async (id) => {
-    if (!window.confirm('Biztosan törölni szeretnéd ezt a felhasználót?')) return;
+  const flash = (msg, isError = false) => {
+    if (isError) setError(msg);
+    else setSuccess(msg);
+    setTimeout(() => { setError(''); setSuccess(''); }, 3000);
+  };
 
+  const handleDelete = async (id) => {
+    if (!confirm('Biztosan törlöd ezt a felhasználót?')) return;
     try {
       await axios.delete(`/users/${id}`);
-      setSuccess('Felhasználó sikeresen törölve!');
-      loadUsers();
-      setTimeout(() => setSuccess(''), 3000);
+      flash('Felhasználó törölve.');
+      load();
     } catch (err) {
-      console.error('Delete user error:', err);
-      setError(err.response?.data?.error || 'Törlési hiba');
+      flash(err.response?.data?.error || 'A törlés nem sikerült.', true);
     }
   };
 
-  const handleRoleChange = async (id, newRole) => {
+  const handleRole = async (id, role) => {
     try {
-      await axios.patch(`/users/${id}/role`, { role: newRole });
-      setSuccess(`Szerepkör sikeresen módosítva: ${newRole === 'admin' ? 'Admin' : 'Felhasználó'}`);
-      loadUsers();
-      setTimeout(() => setSuccess(''), 3000);
+      await axios.patch(`/users/${id}/role`, { role });
+      flash(`Szerepkör módosítva: ${role === 'admin' ? 'Admin' : 'Felhasználó'}`);
+      load();
     } catch (err) {
-      console.error('Role change error:', err);
-      setError(err.response?.data?.error || 'Hiba történt a szerepkör módosítása során');
+      flash(err.response?.data?.error || 'Hiba a módosításnál.', true);
     }
   };
 
-  if (!user || user.role !== 'admin') {
-    return <Navigate to="/" />;
-  }
+  if (!user || user.role !== 'admin') return <Navigate to="/" />;
 
   if (loading) {
     return (
-      <Container className="text-center py-5">
-        <div className="spinner-border text-light" role="status">
-          <span className="visually-hidden">Betöltés...</span>
+      <main className="page">
+        <div className="container">
+          <div className="loading-state">
+            <div className="spinner" />
+            Betöltés...
+          </div>
         </div>
-        <p className="mt-3 text-white">Felhasználók betöltése...</p>
-      </Container>
+      </main>
     );
   }
 
   return (
-    <Container className="py-4 py-md-5">
-      <Row className="mb-4">
-        <Col>
-          <h2 className="fw-bold text-white">
-            <Users className="me-2" />
-            Felhasználók Kezelése
-          </h2>
-        </Col>
-      </Row>
+    <main className="page">
+      <div className="container">
+        <div className="page-header">
+          <div className="page-header__top">
+            <h1 className="page-title">Felhasználók</h1>
+            <span className="section-count">{users.length} fiók</span>
+          </div>
+        </div>
 
-      {error && (
-        <Alert variant="danger" dismissible onClose={() => setError('')}>
-          <strong>Hiba!</strong> {error}
-        </Alert>
-      )}
+        {error && <div className="alert alert--danger">{error}</div>}
+        {success && <div className="alert alert--success">{success}</div>}
 
-      {success && (
-        <Alert variant="success" dismissible onClose={() => setSuccess('')}>
-          <strong>Siker!</strong> {success}
-        </Alert>
-      )}
-
-      <Card className="shadow mb-4">
-        <Card.Body className="p-0">
-          <div className="table-responsive">
-            <Table hover className="mb-0">
-              <thead className="table-light">
+        <div className="card">
+          <div className="data-table-wrap">
+            <table className="data-table">
+              <thead>
                 <tr>
-                  <th className="d-none d-md-table-cell">ID</th>
+                  <th>ID</th>
                   <th>Felhasználó</th>
-                  <th className="d-none d-lg-table-cell">Email</th>
+                  <th>Email</th>
                   <th>Szerepkör</th>
-                  <th className="d-none d-md-table-cell">Létrehozva</th>
-                  <th style={{ width: '100px' }}>Műveletek</th>
+                  <th>Regisztrálva</th>
+                  <th></th>
                 </tr>
               </thead>
               <tbody>
-                {users.map(u => (
+                {users.map((u) => (
                   <tr key={u.id}>
-                    <td className="align-middle d-none d-md-table-cell">
-                      <Badge bg="secondary">#{u.id}</Badge>
+                    <td>
+                      <span style={{ fontSize: 12, color: 'var(--text-dim)' }}>#{u.id}</span>
                     </td>
-                    <td className="align-middle">
-                      <div>
-                        <strong>{u.username}</strong>
-                        {u.id === user.id && (
-                          <Badge bg="info" className="ms-2">Te</Badge>
-                        )}
-                        <div className="d-lg-none">
-                          <small className="text-muted text-break">{u.email}</small>
-                        </div>
-                      </div>
+                    <td>
+                      <span style={{ fontWeight: 600 }}>{u.username}</span>
+                      {u.id === user.id && (
+                        <span className="badge badge--me" style={{ marginLeft: 8 }}>Te</span>
+                      )}
                     </td>
-                    <td className="align-middle d-none d-lg-table-cell">
-                      <span className="text-break">{u.email}</span>
+                    <td>
+                      <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>{u.email}</span>
                     </td>
-                    <td className="align-middle">
-                      <Form.Select
-                        size="sm"
+                    <td>
+                      <select
+                        className="role-select"
                         value={u.role}
-                        onChange={(e) => handleRoleChange(u.id, e.target.value)}
+                        onChange={(e) => handleRole(u.id, e.target.value)}
                         disabled={u.id === user.id}
-                        style={{ minWidth: '130px' }}
                       >
-                        <option value="user">👤 User</option>
-                        <option value="admin">🛡️ Admin</option>
-                      </Form.Select>
+                        <option value="user">Felhasználó</option>
+                        <option value="admin">Admin</option>
+                      </select>
                     </td>
-                    <td className="align-middle d-none d-md-table-cell">
-                      <small className="text-muted">
-                        {new Date(u.created_at).toLocaleDateString('hu-HU', {
-                          year: 'numeric',
-                          month: 'short',
-                          day: 'numeric'
-                        })}
-                      </small>
+                    <td>
+                      <span style={{ fontSize: 12, color: 'var(--text-dim)' }}>
+                        {new Date(u.created_at).toLocaleDateString('hu-HU')}
+                      </span>
                     </td>
-                    <td className="align-middle">
-                      <Button
-                        variant="outline-danger"
-                        size="sm"
+                    <td>
+                      <button
+                        className="btn btn--danger btn--sm"
                         onClick={() => handleDelete(u.id)}
                         disabled={u.id === user.id}
                         title="Törlés"
                       >
-                        <Trash2 size={16} />
-                      </Button>
+                        <Trash2 size={14} />
+                      </button>
                     </td>
                   </tr>
                 ))}
               </tbody>
-            </Table>
+            </table>
+
+            {users.length === 0 && (
+              <div className="empty-state">
+                <div className="empty-state__icon">👤</div>
+                <p className="empty-state__text">Nincsenek felhasználók</p>
+              </div>
+            )}
           </div>
+        </div>
 
-          {users.length === 0 && (
-            <Alert variant="info" className="text-center m-3 mb-0">
-              Nincsenek felhasználók az adatbázisban
-            </Alert>
-          )}
-        </Card.Body>
-      </Card>
-
-      <Card className="shadow-sm">
-        <Card.Body>
-          <h5 className="mb-3">
-            <Shield className="me-2" />
-            Jogosultságok magyarázata
-          </h5>
-          <Row>
-            <Col md={6}>
-              <div className="mb-3">
-                <Badge bg="primary" className="me-2 mb-2">👤 Felhasználó</Badge>
-                <p className="mb-0 text-muted small">
-                  Megtekintheti a gépeket, de nem módosíthat semmit.
-                </p>
-              </div>
-            </Col>
-            <Col md={6}>
-              <div className="mb-3">
-                <Badge bg="danger" className="me-2 mb-2">🛡️ Admin</Badge>
-                <p className="mb-0 text-muted small">
-                  Teljes hozzáférés: gépek és felhasználók kezelése.
-                </p>
-              </div>
-            </Col>
-          </Row>
-        </Card.Body>
-      </Card>
-    </Container>
+        <div className="perm-box">
+          <div className="perm-box__title">
+            <Shield size={13} style={{ marginRight: 6, verticalAlign: 'middle' }} />
+            Jogosultságok
+          </div>
+          <div className="perm-row">
+            <span className="badge badge--user">Felhasználó</span>
+            <p>Megtekintheti a gépeket, bérlési kérelmet adhat le.</p>
+          </div>
+          <div className="perm-row">
+            <span className="badge badge--admin">Admin</span>
+            <p>Teljes hozzáférés: gépek és felhasználók kezelése, bérlések jóváhagyása.</p>
+          </div>
+        </div>
+      </div>
+    </main>
   );
 }
 

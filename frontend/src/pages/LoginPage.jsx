@@ -1,6 +1,5 @@
 import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import { Container, Row, Col, Card, Form, Button, Alert } from 'react-bootstrap';
+import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { LogIn } from 'lucide-react';
 
@@ -15,109 +14,83 @@ function LoginPage({ login }) {
     e.preventDefault();
     setError('');
     setLoading(true);
-
     try {
       const res = await axios.post('/login', { email, password });
       login(res.data.token, res.data.user);
       navigate('/');
     } catch (err) {
-      console.error('Login error:', err);
-      setError(err.response?.data?.error || 'Bejelentkezési hiba történt. Kérjük, próbálja újra.');
+      setError(err.response?.data?.error || 'Nem sikerült bejelentkezni.');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <Container style={{ minHeight: 'calc(100vh - 56px)' }} className="d-flex align-items-center justify-content-center py-5">
-      <Row className="justify-content-center w-100">
-        <Col xs={12} sm={10} md={8} lg={5} xl={4}>
-          <Card className="shadow-lg">
-            <Card.Body className="p-4 p-md-5">
-              <div className="text-center mb-4">
-                <div className="mb-3">
-                  <LogIn size={56} className="text-primary" />
-                </div>
-                <h2 className="fw-bold mb-2">Bejelentkezés</h2>
-                <p className="text-muted small">Jelentkezz be a fiókodba</p>
-              </div>
+    <main className="page">
+      <div className="container">
+        <div className="form-card">
+          <div className="form-card__header">
+            <div className="form-card__icon">
+              <LogIn size={22} strokeWidth={2.5} />
+            </div>
+            <div className="form-card__title">Belépés</div>
+            <div className="form-card__sub">Jelentkezz be a fiókodba</div>
+          </div>
 
-              {error && (
-                <Alert variant="danger" dismissible onClose={() => setError('')}>
-                  {error}
-                </Alert>
-              )}
+          {error && <div className="alert alert--danger">{error}</div>}
 
-              <Form onSubmit={handleSubmit}>
-                <Form.Group className="mb-3">
-                  <Form.Label>Email cím</Form.Label>
-                  <Form.Control
-                    type="email"
-                    placeholder="pelda@email.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                    autoComplete="email"
-                    size="lg"
-                  />
-                </Form.Group>
+          <form onSubmit={handleSubmit}>
+            <div className="form-group">
+              <label className="form-label">Email cím</label>
+              <input
+                className="form-control"
+                type="email"
+                placeholder="pelda@email.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                autoComplete="email"
+              />
+            </div>
 
-                <Form.Group className="mb-4">
-                  <Form.Label>Jelszó</Form.Label>
-                  <Form.Control
-                    type="password"
-                    placeholder="••••••••"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                    autoComplete="current-password"
-                    size="lg"
-                  />
-                </Form.Group>
+            <div className="form-group">
+              <label className="form-label">Jelszó</label>
+              <input
+                className="form-control"
+                type="password"
+                placeholder="••••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                autoComplete="current-password"
+              />
+            </div>
 
-                <Button 
-                  variant="primary" 
-                  type="submit" 
-                  className="w-100 py-3"
-                  size="lg"
-                  disabled={loading}
-                >
-                  {loading ? (
-                    <>
-                      <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-                      Bejelentkezés...
-                    </>
-                  ) : (
-                    'Belépés'
-                  )}
-                </Button>
-              </Form>
+            <button
+              className="btn btn--primary btn--lg"
+              type="submit"
+              disabled={loading}
+              style={{ width: '100%', justifyContent: 'center', marginTop: 8 }}
+            >
+              {loading ? 'Belépés...' : 'Belépés'}
+            </button>
+          </form>
 
-              <hr className="my-4" />
+          <hr className="divider" />
 
-              <div className="text-center">
-                <p className="mb-3">
-                  Még nincs fiókod?{' '}
-                  <Link to="/register" className="text-decoration-none fw-bold">
-                    Regisztrálj itt
-                  </Link>
-                </p>
-                
-                <Alert variant="info" className="mb-0 py-3">
-                  <div className="small">
-                    <strong>🔑 Demo admin fiók:</strong>
-                    <div className="mt-2">
-                      <strong>Email:</strong> admin@nehezgep.hu<br />
-                      <strong>Jelszó:</strong> admin123
-                    </div>
-                  </div>
-                </Alert>
-              </div>
-            </Card.Body>
-          </Card>
-        </Col>
-      </Row>
-    </Container>
+          <p style={{ fontSize: 14, color: 'var(--text-muted)', textAlign: 'center', marginBottom: 16 }}>
+            Még nincs fiókod?{' '}
+            <Link to="/register" className="link">Regisztrálj itt</Link>
+          </p>
+
+          <div className="demo-box">
+            <div className="demo-box__label">Demo admin fiók</div>
+            <div className="demo-box__row"><strong>Email:</strong> admin@nehezgep.hu</div>
+            <div className="demo-box__row"><strong>Jelszó:</strong> admin123</div>
+          </div>
+        </div>
+      </div>
+    </main>
   );
 }
 
