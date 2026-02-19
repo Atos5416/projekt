@@ -803,3 +803,114 @@ a.link:hover { color: var(--accent-light); text-decoration: underline; }
   .hero__title { font-size: 28px; }
   .page-title { font-size: 24px; }
 }
+
+/* ── Equipment detail modal ── */
+.equipment-modal {
+  max-width: 640px;
+  position: relative;
+  padding: 0;
+  overflow: hidden;
+}
+
+.equipment-modal__close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 10;
+  background: rgba(0,0,0,0.55);
+  border: 1px solid rgba(255,255,255,0.12);
+  color: #fff;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.equipment-modal__close:hover { background: rgba(0,0,0,0.8); }
+
+.equipment-modal__img-wrap {
+  width: 100%;
+  height: 280px;
+  overflow: hidden;
+  background: var(--bg-elevated);
+  flex-shrink: 0;
+}
+
+.equipment-modal__img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.equipment-modal__img-fallback {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 72px;
+  background: repeating-linear-gradient(
+    45deg,
+    var(--bg-elevated),
+    var(--bg-elevated) 10px,
+    var(--bg-card) 10px,
+    var(--bg-card) 20px
+  );
+}
+
+.equipment-modal__body {
+  padding: 28px 28px 32px;
+}
+
+.equipment-modal__title {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 26px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--text);
+  margin-bottom: 24px;
+  line-height: 1.1;
+}
+
+.equipment-modal__section {
+  margin-bottom: 22px;
+}
+
+.equipment-modal__section:last-child { margin-bottom: 0; }
+
+.equipment-modal__label {
+  display: block;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 8px;
+}
+
+.equipment-modal__desc {
+  font-size: 14px;
+  color: var(--text-muted);
+  line-height: 1.7;
+}
+
+.equipment-modal__contact {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+@media (max-width: 480px) {
+  .equipment-modal__img-wrap { height: 200px; }
+  .equipment-modal__body { padding: 20px 18px 24px; }
+  .equipment-modal__title { font-size: 20px; }
+}
