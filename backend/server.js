@@ -105,7 +105,6 @@ app.post('/api/register', async (req, res, next) => {
   try {
     const { username, email, password } = req.body;
 
-    // Validáció
     if (!username || !email || !password) {
       return res.status(400).json({ error: 'Minden mező kitöltése kötelező' });
     }
@@ -118,7 +117,6 @@ app.post('/api/register', async (req, res, next) => {
       return res.status(400).json({ error: 'A jelszónak legalább 6 karakter hosszúnak kell lennie' });
     }
 
-    // Email formátum ellenőrzés
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
       return res.status(400).json({ error: 'Érvénytelen email formátum' });
@@ -269,7 +267,6 @@ app.put('/api/equipment/:id', authenticateToken, requireAdmin, upload.single('im
 
     let image = equipment.image;
     if (req.file) {
-      // Régi kép törlése (csak lokális fájlok esetén)
       if (equipment.image && !equipment.image.startsWith('http')) {
         const oldImagePath = path.join(__dirname, equipment.image);
         if (fs.existsSync(oldImagePath)) {
@@ -300,7 +297,6 @@ app.delete('/api/equipment/:id', authenticateToken, requireAdmin, async (req, re
       return res.status(404).json({ error: 'Gép nem található' });
     }
 
-    // Kép törlése (csak lokális fájlok esetén)
     if (equipment.image && !equipment.image.startsWith('http')) {
       const imagePath = path.join(__dirname, equipment.image);
       if (fs.existsSync(imagePath)) {
@@ -396,6 +392,165 @@ app.patch('/api/users/:id/role', authenticateToken, requireAdmin, async (req, re
   }
 });
 
+// === RENTAL ROUTES ===
+
+// Saját bérlések lekérése (bejelentkezett felhasználó)
+app.get('/api/rentals/my', authenticateToken, async (req, res, next) => {
+  try {
+    const rentals = await db.getRentalsByUserId(req.user.id);
+    res.json(rentals);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Összes bérlés lekérése (csak admin)
+app.get('/api/rentals', authenticateToken, requireAdmin, async (req, res, next) => {
+  try {
+    const rentals = await db.getAllRentals();
+    res.json(rentals);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Egy géphez tartozó bérlések (csak admin)
+app.get('/api/rentals/equipment/:equipmentId', authenticateToken, requireAdmin, async (req, res, next) => {
+  try {
+    const rentals = await db.getRentalsByEquipmentId(req.params.equipmentId);
+    res.json(rentals);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Egy bérlés lekérése (saját, vagy admin)
+app.get('/api/rentals/:id', authenticateToken, async (req, res, next) => {
+  try {
+    const rental = await db.getRentalById(req.params.id);
+    if (!rental) {
+      return res.status(404).json({ error: 'Bérlés nem található' });
+    }
+
+    // Csak saját bérlést láthat, kivéve admin
+    if (req.user.role !== 'admin' && rental.user_id !== req.user.id) {
+      return res.status(403).json({ error: 'Hozzáférés megtagadva' });
+    }
+
+    res.json(rental);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Új bérlési kérelem leadása (bejelentkezett felhasználó)
+app.post('/api/rentals', authenticateToken, async (req, res, next) => {
+  try {
+    const { equipment_id, start_date, end_date, notes } = req.body;
+
+    if (!equipment_id || !start_date || !end_date) {
+      return res.status(400).json({ error: 'A gép, a kezdő és a befejező dátum megadása kötelező' });
+    }
+
+    // Dátum validáció
+    const start = new Date(start_date);
+    const end = new Date(end_date);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+      return res.status(400).json({ error: 'Érvénytelen dátumformátum' });
+    }
+
+    if (start < today) {
+      return res.status(400).json({ error: 'A kezdő dátum nem lehet múltbeli' });
+    }
+
+    if (end <= start) {
+      return res.status(400).json({ error: 'A befejező dátumnak a kezdő dátum után kell lennie' });
+    }
+
+    // Gép létezik-e
+    const equipment = await db.getEquipmentById(equipment_id);
+    if (!equipment) {
+      return res.status(404).json({ error: 'Gép nem található' });
+    }
+
+    // Ütközésvizsgálat
+    const hasConflict = await db.checkRentalConflict(equipment_id, start_date, end_date);
+    if (hasConflict) {
+      return res.status(409).json({ 
+        error: 'A gép a kért időszakban már foglalt. Kérjük, válasszon másik időpontot.' 
+      });
+    }
+
+    const rentalId = await db.createRental(req.user.id, equipment_id, start_date, end_date, notes);
+    const rental = await db.getRentalById(rentalId);
+
+    console.log(`✅ Új bérlési kérelem: ${equipment.name} | ${start_date} – ${end_date} | Felhasználó: ${req.user.id}`);
+
+    res.status(201).json(rental);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Bérlés státuszának módosítása (csak admin)
+app.patch('/api/rentals/:id/status', authenticateToken, requireAdmin, async (req, res, next) => {
+  try {
+    const { status } = req.body;
+    const validStatuses = ['pending', 'active', 'completed', 'cancelled'];
+
+    if (!validStatuses.includes(status)) {
+      return res.status(400).json({ 
+        error: `Érvénytelen státusz. Lehetséges értékek: ${validStatuses.join(', ')}` 
+      });
+    }
+
+    const rental = await db.getRentalById(req.params.id);
+    if (!rental) {
+      return res.status(404).json({ error: 'Bérlés nem található' });
+    }
+
+    await db.updateRentalStatus(req.params.id, status);
+    const updated = await db.getRentalById(req.params.id);
+
+    console.log(`✅ Bérlés státusz módosítva: #${req.params.id} -> ${status}`);
+
+    res.json(updated);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Bérlés lemondása (saját, csak ha 'pending'; vagy admin bármit törölhet)
+app.delete('/api/rentals/:id', authenticateToken, async (req, res, next) => {
+  try {
+    const rental = await db.getRentalById(req.params.id);
+    if (!rental) {
+      return res.status(404).json({ error: 'Bérlés nem található' });
+    }
+
+    // Felhasználó csak saját, pending bérlést mondhat le
+    if (req.user.role !== 'admin') {
+      if (rental.user_id !== req.user.id) {
+        return res.status(403).json({ error: 'Hozzáférés megtagadva' });
+      }
+      if (rental.status !== 'pending') {
+        return res.status(400).json({ error: 'Csak függőben lévő bérlést lehet lemondani' });
+      }
+    }
+
+    await db.deleteRental(req.params.id);
+
+    console.log(`🗑️  Bérlés törölve: #${req.params.id}`);
+
+    res.json({ message: 'Bérlés sikeresen törölve' });
+  } catch (error) {
+    next(error);
+  }
+});
+
 // === UTILITY ROUTES ===
 
 // Health check
@@ -411,14 +566,19 @@ app.get('/api/health', (req, res) => {
 app.get('/', (req, res) => {
   res.json({
     name: 'NehézGép Bérlés API',
-    version: '1.0.0',
+    version: '2.0.0',
     status: 'running',
     endpoints: {
       health: 'GET /api/health',
       equipment: 'GET /api/equipment',
       login: 'POST /api/login',
       register: 'POST /api/register',
-      me: 'GET /api/me (protected)'
+      me: 'GET /api/me (protected)',
+      myRentals: 'GET /api/rentals/my (protected)',
+      createRental: 'POST /api/rentals (protected)',
+      allRentals: 'GET /api/rentals (admin)',
+      updateRentalStatus: 'PATCH /api/rentals/:id/status (admin)',
+      deleteRental: 'DELETE /api/rentals/:id (protected)'
     }
   });
 });
@@ -432,7 +592,7 @@ app.use((req, res) => {
   });
 });
 
-// Error handler (ez legyen az utolsó middleware)
+// Error handler
 app.use(errorHandler);
 
 // Szerver indítása
@@ -440,21 +600,21 @@ db.init()
   .then(() => {
     app.listen(PORT, () => {
       console.log('═══════════════════════════════════════════');
-      console.log('  🚀 NehézGép Bérlés Backend Server');
+      console.log('  NehézGép Bérlés Backend Server v2.0');
       console.log('═══════════════════════════════════════════');
-      console.log(`  ✅ Server: http://localhost:${PORT}`);
-      console.log(`  📁 Uploads: ${uploadsDir}`);
-      console.log(`  🔐 Admin: admin@nehezgep.hu / admin123`);
+      console.log(`  Server: http://localhost:${PORT}`);
+      console.log(`  Uploads: ${uploadsDir}`);
+      console.log(`  Admin: admin@nehezgep.hu / admin123`);
       console.log('═══════════════════════════════════════════');
     });
   })
   .catch(err => {
-    console.error('❌ Database initialization error:', err);
+    console.error('Database initialization error:', err);
     process.exit(1);
   });
 
 // Graceful shutdown
 process.on('SIGINT', () => {
-  console.log('\n👋 Server shutting down...');
+  console.log('\nServer shutting down...');
   process.exit(0);
 });

@@ -1,9 +1,9 @@
 /* Custom Bootstrap Theme */
 :root {
-  --bs-primary: #0d6efd;
+  --bs-primary: #23052c;
   --bs-primary-rgb: 13, 110, 253;
-  --gradient-start: #667eea;
-  --gradient-end: #764ba2;
+  --gradient-start: #f5d000;
+  --gradient-end: #181803;
 }
 
 * {

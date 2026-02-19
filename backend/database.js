@@ -7,9 +7,11 @@ class Database {
     const dbPath = path.join(__dirname, 'database.db');
     this.db = new sqlite3.Database(dbPath, (err) => {
       if (err) {
-        console.error('❌ Database connection error:', err);
+        console.error('Database connection error:', err);
       } else {
         console.log('✅ Connected to SQLite database');
+        // Foreign key támogatás engedélyezése
+        this.db.run('PRAGMA foreign_keys = ON');
       }
     });
   }
@@ -17,6 +19,9 @@ class Database {
   init() {
     return new Promise((resolve, reject) => {
       this.db.serialize(() => {
+        // Foreign key támogatás engedélyezése
+        this.db.run('PRAGMA foreign_keys = ON');
+
         // Users tábla
         this.db.run(`
           CREATE TABLE IF NOT EXISTS users (
@@ -52,6 +57,31 @@ class Database {
           }
         });
 
+        // Rentals tábla – users és equipment közötti kapcsolótábla
+        this.db.run(`
+          CREATE TABLE IF NOT EXISTS rentals (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            equipment_id INTEGER NOT NULL,
+            status TEXT NOT NULL DEFAULT 'pending'
+              CHECK(status IN ('pending', 'active', 'completed', 'cancelled')),
+            start_date DATE NOT NULL,
+            end_date DATE NOT NULL,
+            notes TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+            FOREIGN KEY (equipment_id) REFERENCES equipment(id) ON DELETE CASCADE
+          )
+        `, (err) => {
+          if (err) {
+            console.error('Error creating rentals table:', err);
+            reject(err);
+          } else {
+            console.log('Rentals tábla kész');
+          }
+        });
+
         // Alapértelmezett admin felhasználó létrehozása
         this.db.get('SELECT * FROM users WHERE email = ?', ['admin@nehezgep.hu'], async (err, row) => {
           if (err) {
@@ -67,7 +97,7 @@ class Database {
                 ['Admin', 'admin@nehezgep.hu', hashedPassword, 'admin'],
                 (err) => {
                   if (err) {
-                    console.error('❌ Admin létrehozási hiba:', err);
+                    console.error('Admin létrehozási hiba:', err);
                   } else {
                     console.log('✅ Alapértelmezett admin létrehozva: admin@nehezgep.hu / admin123');
                   }
@@ -139,10 +169,10 @@ class Database {
             });
 
             stmt.finalize(() => {
-              console.log('✅ Példa gépek hozzáadva képekkel (6 db)');
+              console.log(' Példa gépek hozzáadva képekkel (6 db)');
             });
           } else if (row.count > 0) {
-            console.log(`ℹ️  ${row.count} gép már létezik az adatbázisban`);
+            console.log(`  ${row.count} gép már létezik az adatbázisban`);
           }
         });
 
@@ -247,7 +277,7 @@ class Database {
   updateEquipment(id, name, description, contact, image) {
     return new Promise((resolve, reject) => {
       this.db.run(
-        'UPDATE equipment SET name = ?, description = ?, contact = ?, image = ?, created_at = CURRENT_TIMESTAMP WHERE id = ?',
+        'UPDATE equipment SET name = ?, description = ?, contact = ?, image = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
         [name, description, contact, image, id],
         (err) => {
           if (err) reject(err);
@@ -263,6 +293,152 @@ class Database {
         if (err) reject(err);
         else resolve();
       });
+    });
+  }
+
+  // === RENTAL METHODS ===
+
+  // Új bérlési kérelem létrehozása
+  createRental(userId, equipmentId, startDate, endDate, notes = null) {
+    return new Promise((resolve, reject) => {
+      this.db.run(
+        `INSERT INTO rentals (user_id, equipment_id, start_date, end_date, notes, status)
+         VALUES (?, ?, ?, ?, ?, 'pending')`,
+        [userId, equipmentId, startDate, endDate, notes],
+        function(err) {
+          if (err) reject(err);
+          else resolve(this.lastID);
+        }
+      );
+    });
+  }
+
+  // Egy bérlés lekérése ID alapján (felhasználó és gép adataival együtt)
+  getRentalById(id) {
+    return new Promise((resolve, reject) => {
+      this.db.get(
+        `SELECT r.*,
+                u.username, u.email,
+                e.name AS equipment_name, e.image AS equipment_image
+         FROM rentals r
+         JOIN users u ON r.user_id = u.id
+         JOIN equipment e ON r.equipment_id = e.id
+         WHERE r.id = ?`,
+        [id],
+        (err, row) => {
+          if (err) reject(err);
+          else resolve(row);
+        }
+      );
+    });
+  }
+
+  // Összes bérlés lekérése (admin nézethez)
+  getAllRentals() {
+    return new Promise((resolve, reject) => {
+      this.db.all(
+        `SELECT r.*,
+                u.username, u.email,
+                e.name AS equipment_name, e.image AS equipment_image
+         FROM rentals r
+         JOIN users u ON r.user_id = u.id
+         JOIN equipment e ON r.equipment_id = e.id
+         ORDER BY r.created_at DESC`,
+        [],
+        (err, rows) => {
+          if (err) reject(err);
+          else resolve(rows);
+        }
+      );
+    });
+  }
+
+  // Egy felhasználó bérlései
+  getRentalsByUserId(userId) {
+    return new Promise((resolve, reject) => {
+      this.db.all(
+        `SELECT r.*,
+                e.name AS equipment_name, e.image AS equipment_image
+         FROM rentals r
+         JOIN equipment e ON r.equipment_id = e.id
+         WHERE r.user_id = ?
+         ORDER BY r.created_at DESC`,
+        [userId],
+        (err, rows) => {
+          if (err) reject(err);
+          else resolve(rows);
+        }
+      );
+    });
+  }
+
+  // Egy géphez tartozó bérlések
+  getRentalsByEquipmentId(equipmentId) {
+    return new Promise((resolve, reject) => {
+      this.db.all(
+        `SELECT r.*,
+                u.username, u.email
+         FROM rentals r
+         JOIN users u ON r.user_id = u.id
+         WHERE r.equipment_id = ?
+         ORDER BY r.created_at DESC`,
+        [equipmentId],
+        (err, rows) => {
+          if (err) reject(err);
+          else resolve(rows);
+        }
+      );
+    });
+  }
+
+  // Bérlés státuszának frissítése (admin)
+  updateRentalStatus(id, status) {
+    return new Promise((resolve, reject) => {
+      this.db.run(
+        `UPDATE rentals SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+        [status, id],
+        (err) => {
+          if (err) reject(err);
+          else resolve();
+        }
+      );
+    });
+  }
+
+  // Bérlés törlése (csak admin, vagy a kérelmező ha még 'pending')
+  deleteRental(id) {
+    return new Promise((resolve, reject) => {
+      this.db.run('DELETE FROM rentals WHERE id = ?', [id], (err) => {
+        if (err) reject(err);
+        else resolve();
+      });
+    });
+  }
+
+  // Ütközésvizsgálat: adott gépre van-e már aktív/függő bérlés a kért időszakban
+  checkRentalConflict(equipmentId, startDate, endDate, excludeRentalId = null) {
+    return new Promise((resolve, reject) => {
+      const excludeClause = excludeRentalId ? 'AND r.id != ?' : '';
+      const params = excludeRentalId
+        ? [equipmentId, startDate, endDate, startDate, endDate, excludeRentalId]
+        : [equipmentId, startDate, endDate, startDate, endDate];
+
+      this.db.get(
+        `SELECT COUNT(*) as count FROM rentals r
+         WHERE r.equipment_id = ?
+           AND r.status IN ('pending', 'active')
+           AND (
+             (r.start_date <= ? AND r.end_date >= ?) OR
+             (r.start_date <= ? AND r.end_date >= ?) OR
+             (r.start_date >= ? AND r.end_date <= ?)
+           )
+           ${excludeClause}`,
+        [...params, startDate, endDate],
+        (err, row) => {
+          if (err) reject(err);
+          else resolve(row.count > 0);
+        }
+      );
     });
   }
 
