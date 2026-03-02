@@ -61,6 +61,8 @@ function AdminPage({ user }) {
     setError('');
     setLoading(true);
 
+    // FormData-t használunk – NE adjunk meg Content-Type fejlécet manuálisan,
+    // az Axios automatikusan beállítja a boundary-val együtt
     const data = new FormData();
     data.append('name', form.name.trim());
     data.append('description', form.description.trim());
@@ -69,16 +71,11 @@ function AdminPage({ user }) {
 
     try {
       if (editingId) {
-        await axios.put(`/equipment/${editingId}`, data, {
-          headers: { 'Content-Type': 'multipart/form-data' },
-        });
-        setSuccess('Gép sikeresen módosítva.');
+        await axios.put(`/equipment/${editingId}`, data);
       } else {
-        await axios.post('/equipment', data, {
-          headers: { 'Content-Type': 'multipart/form-data' },
-        });
-        setSuccess('Gép hozzáadva.');
+        await axios.post('/equipment', data);
       }
+      setSuccess(editingId ? 'Gép sikeresen módosítva.' : 'Gép hozzáadva.');
       closeModal();
       load();
       setTimeout(() => setSuccess(''), 3000);

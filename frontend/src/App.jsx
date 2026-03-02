@@ -12,12 +12,15 @@ import UsersPage from './pages/UsersPage';
 
 axios.defaults.baseURL = 'http://localhost:3000/api';
 
+// Token csatolása minden kéréshez
 axios.interceptors.request.use((config) => {
   const token = localStorage.getItem('token');
   if (token) config.headers.Authorization = `Bearer ${token}`;
   return config;
 });
 
+// Csak valóban lejárt/érvénytelen token esetén jelent ki (401)
+// 403-at NEM kezeljük itt – az csak "nincs jogosultság" és nem kijelentkezés
 axios.interceptors.response.use(
   (res) => res,
   (err) => {
