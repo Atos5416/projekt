@@ -43,7 +43,7 @@ function UsersPage({ user }) {
 
   const handleRole = async (id, role) => {
     try {
-      await axios.patch(`/users/${id}/role`, { role });
+      await axios.post(`/users/${id}/role`, { role });
       flash(`Szerepkör módosítva: ${role === 'admin' ? 'Admin' : 'Felhasználó'}`);
       load();
     } catch (err) {
