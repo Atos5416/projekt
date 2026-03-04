@@ -400,6 +400,113 @@ app.post('/api/users/:id/role', authenticateToken, requireAdmin, async (req, res
   }
 });
 
+
+// === RENTAL ROUTES ===
+
+// Saját bérlések lekérése
+app.get('/api/rentals/my', authenticateToken, async (req, res, next) => {
+  try {
+    const rentals = await db.getRentalsByUserId(req.user.id);
+    res.json(rentals);
+  } catch (error) { next(error); }
+});
+
+// Egy gép foglaltságai (publikus – naptárhoz)
+app.get('/api/rentals/equipment/:equipmentId', async (req, res, next) => {
+  try {
+    const rentals = await db.getRentalsByEquipmentId(req.params.equipmentId);
+    // Csak az aktív/függőben lévő bérlések kellenek a naptárhoz
+    const active = rentals.filter(r => ['pending', 'active'].includes(r.status));
+    res.json(active);
+  } catch (error) { next(error); }
+});
+
+// Összes bérlés (admin)
+app.get('/api/rentals', authenticateToken, requireAdmin, async (req, res, next) => {
+  try {
+    const rentals = await db.getAllRentals();
+    res.json(rentals);
+  } catch (error) { next(error); }
+});
+
+// Új bérlés létrehozása
+app.post('/api/rentals', authenticateToken, async (req, res, next) => {
+  try {
+    const { equipment_id, start_date, end_date, notes } = req.body;
+
+    if (!equipment_id || !start_date || !end_date) {
+      return res.status(400).json({ error: 'Gép, kezdő és záró dátum megadása kötelező.' });
+    }
+
+    const start = new Date(start_date);
+    const end = new Date(end_date);
+    const today = new Date(); today.setHours(0,0,0,0);
+
+    if (isNaN(start) || isNaN(end)) {
+      return res.status(400).json({ error: 'Érvénytelen dátumformátum.' });
+    }
+    if (start < today) {
+      return res.status(400).json({ error: 'A kezdő dátum nem lehet múltbeli.' });
+    }
+    if (end <= start) {
+      return res.status(400).json({ error: 'A záró dátum a kezdő dátum után kell legyen.' });
+    }
+
+    const equipment = await db.getEquipmentById(equipment_id);
+    if (!equipment) {
+      return res.status(404).json({ error: 'Gép nem található.' });
+    }
+
+    const conflict = await db.checkRentalConflict(equipment_id, start_date, end_date);
+    if (conflict) {
+      return res.status(409).json({ error: 'Ez a gép a megadott időszakban már foglalt.' });
+    }
+
+    const id = await db.createRental(req.user.id, equipment_id, start_date, end_date, notes || null);
+    const rental = await db.getRentalById(id);
+
+    console.log(`✅ Bérlés létrehozva: #\${id} (\${equipment.name})`);
+    res.status(201).json(rental);
+  } catch (error) { next(error); }
+});
+
+// Bérlés törlése (saját pending, vagy admin bármit)
+app.delete('/api/rentals/:id', authenticateToken, async (req, res, next) => {
+  try {
+    const rental = await db.getRentalById(req.params.id);
+    if (!rental) return res.status(404).json({ error: 'Bérlés nem található.' });
+
+    const isOwner = rental.user_id === req.user.id;
+    const isAdmin = req.user.role === 'admin';
+
+    if (!isOwner && !isAdmin) {
+      return res.status(403).json({ error: 'Nincs jogosultságod.' });
+    }
+    if (isOwner && !isAdmin && rental.status !== 'pending') {
+      return res.status(400).json({ error: 'Csak függőben lévő bérlést lehet lemondani.' });
+    }
+
+    await db.deleteRental(req.params.id);
+    res.json({ message: 'Bérlés törölve.' });
+  } catch (error) { next(error); }
+});
+
+// Bérlés státusz módosítása (admin)
+app.post('/api/rentals/:id/status', authenticateToken, requireAdmin, async (req, res, next) => {
+  try {
+    const { status } = req.body;
+    if (!['pending','active','completed','cancelled'].includes(status)) {
+      return res.status(400).json({ error: 'Érvénytelen státusz.' });
+    }
+    const rental = await db.getRentalById(req.params.id);
+    if (!rental) return res.status(404).json({ error: 'Bérlés nem található.' });
+
+    await db.updateRentalStatus(req.params.id, status);
+    const updated = await db.getRentalById(req.params.id);
+    res.json(updated);
+  } catch (error) { next(error); }
+});
+
 // === UTILITY ROUTES ===
 
 // Health check

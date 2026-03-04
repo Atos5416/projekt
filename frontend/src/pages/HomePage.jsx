@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import axios from 'axios';
 import EquipmentCard from '../components/EquipmentCard';
 
-function HomePage() {
+function HomePage({ user }) {
   const [equipment, setEquipment] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -18,7 +18,7 @@ function HomePage() {
     <main className="page">
       <div className="container">
         <div className="hero">
-          <p className="hero__eyebrow">Nehézgép bérlés — Békés vármegye</p>
+          <p className="hero__eyebrow">Nehézgép bérlés — Baranya megye</p>
           <h1 className="hero__title">
             Profi gépek,<br /><em>azonnal elérhető</em>
           </h1>
@@ -56,7 +56,7 @@ function HomePage() {
             ) : (
               <div className="equipment-grid">
                 {equipment.map((item) => (
-                  <EquipmentCard key={item.id} equipment={item} />
+                  <EquipmentCard key={item.id} equipment={item} user={user} />
                 ))}
               </div>
             )}
