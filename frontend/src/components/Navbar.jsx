@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Wrench, Menu, X, LogOut, Settings, Users } from 'lucide-react';
+import { Wrench, Menu, X, LogOut, Settings, Users, CalendarCheck } from 'lucide-react';
 
 function Navbar({ user, logout }) {
   const [open, setOpen] = useState(false);
@@ -46,6 +46,14 @@ function Navbar({ user, logout }) {
                 >
                   <Settings size={14} style={{ marginRight: 4, verticalAlign: 'middle' }} />
                   Gépkezelés
+                </Link>
+                <Link
+                  to="/rentals"
+                  className={`nav-link${isActive('/rentals') ? ' active' : ''}`}
+                  onClick={() => setOpen(false)}
+                >
+                  <CalendarCheck size={14} style={{ marginRight: 4, verticalAlign: 'middle' }} />
+                  Bérlések
                 </Link>
                 <Link
                   to="/users"

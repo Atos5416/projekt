@@ -366,7 +366,7 @@ app.delete('/api/users/:id', authenticateToken, requireAdmin, async (req, res, n
 });
 
 // Felhasználó szerepkör módosítása
-app.post('/api/users/:id/role', authenticateToken, requireAdmin, async (req, res, next) => {
+app.patch('/api/users/:id/role', authenticateToken, requireAdmin, async (req, res, next) => {
   try {
     const { role } = req.body;
     const userId = parseInt(req.params.id);
@@ -403,7 +403,7 @@ app.post('/api/users/:id/role', authenticateToken, requireAdmin, async (req, res
 
 // === RENTAL ROUTES ===
 
-// Saját bérlések lekérése
+// Saját bérlések
 app.get('/api/rentals/my', authenticateToken, async (req, res, next) => {
   try {
     const rentals = await db.getRentalsByUserId(req.user.id);
@@ -411,12 +411,13 @@ app.get('/api/rentals/my', authenticateToken, async (req, res, next) => {
   } catch (error) { next(error); }
 });
 
-// Egy gép foglaltságai (publikus – naptárhoz)
+// Egy gép foglaltságai (publikus - naptárhoz)
 app.get('/api/rentals/equipment/:equipmentId', async (req, res, next) => {
   try {
     const rentals = await db.getRentalsByEquipmentId(req.params.equipmentId);
-    // Csak az aktív/függőben lévő bérlések kellenek a naptárhoz
-    const active = rentals.filter(r => ['pending', 'active'].includes(r.status));
+    const active = rentals.filter(function(r) {
+      return r.status === 'pending' || r.status === 'active';
+    });
     res.json(active);
   } catch (error) { next(error); }
 });
@@ -432,17 +433,21 @@ app.get('/api/rentals', authenticateToken, requireAdmin, async (req, res, next) 
 // Új bérlés létrehozása
 app.post('/api/rentals', authenticateToken, async (req, res, next) => {
   try {
-    const { equipment_id, start_date, end_date, notes } = req.body;
+    const equipment_id = req.body.equipment_id;
+    const start_date   = req.body.start_date;
+    const end_date     = req.body.end_date;
+    const notes        = req.body.notes || null;
 
     if (!equipment_id || !start_date || !end_date) {
       return res.status(400).json({ error: 'Gép, kezdő és záró dátum megadása kötelező.' });
     }
 
-    const start = new Date(start_date);
-    const end = new Date(end_date);
-    const today = new Date(); today.setHours(0,0,0,0);
+    var start = new Date(start_date);
+    var end   = new Date(end_date);
+    var today = new Date();
+    today.setHours(0, 0, 0, 0);
 
-    if (isNaN(start) || isNaN(end)) {
+    if (isNaN(start.getTime()) || isNaN(end.getTime())) {
       return res.status(400).json({ error: 'Érvénytelen dátumformátum.' });
     }
     if (start < today) {
@@ -462,22 +467,22 @@ app.post('/api/rentals', authenticateToken, async (req, res, next) => {
       return res.status(409).json({ error: 'Ez a gép a megadott időszakban már foglalt.' });
     }
 
-    const id = await db.createRental(req.user.id, equipment_id, start_date, end_date, notes || null);
+    const id = await db.createRental(req.user.id, equipment_id, start_date, end_date, notes);
     const rental = await db.getRentalById(id);
 
-    console.log(`✅ Bérlés létrehozva: #\${id} (\${equipment.name})`);
+    console.log('Berles letrehozva: #' + id + ' (' + equipment.name + ')');
     res.status(201).json(rental);
   } catch (error) { next(error); }
 });
 
-// Bérlés törlése (saját pending, vagy admin bármit)
+// Bérlés törlése
 app.delete('/api/rentals/:id', authenticateToken, async (req, res, next) => {
   try {
     const rental = await db.getRentalById(req.params.id);
     if (!rental) return res.status(404).json({ error: 'Bérlés nem található.' });
 
-    const isOwner = rental.user_id === req.user.id;
-    const isAdmin = req.user.role === 'admin';
+    var isOwner = rental.user_id === req.user.id;
+    var isAdmin = req.user.role === 'admin';
 
     if (!isOwner && !isAdmin) {
       return res.status(403).json({ error: 'Nincs jogosultságod.' });
@@ -494,8 +499,9 @@ app.delete('/api/rentals/:id', authenticateToken, async (req, res, next) => {
 // Bérlés státusz módosítása (admin)
 app.post('/api/rentals/:id/status', authenticateToken, requireAdmin, async (req, res, next) => {
   try {
-    const { status } = req.body;
-    if (!['pending','active','completed','cancelled'].includes(status)) {
+    const status = req.body.status;
+    var valid = ['pending', 'active', 'completed', 'cancelled'];
+    if (valid.indexOf(status) === -1) {
       return res.status(400).json({ error: 'Érvénytelen státusz.' });
     }
     const rental = await db.getRentalById(req.params.id);
@@ -504,6 +510,28 @@ app.post('/api/rentals/:id/status', authenticateToken, requireAdmin, async (req,
     await db.updateRentalStatus(req.params.id, status);
     const updated = await db.getRentalById(req.params.id);
     res.json(updated);
+  } catch (error) { next(error); }
+});
+
+// Felhasználó szerepkör módosítása (POST - PATCH helyett CORS miatt)
+app.post('/api/users/:id/role', authenticateToken, requireAdmin, async (req, res, next) => {
+  try {
+    const role   = req.body.role;
+    const userId = parseInt(req.params.id);
+
+    if (!['user', 'admin'].includes(role)) {
+      return res.status(400).json({ error: 'Érvénytelen szerepkör.' });
+    }
+    if (userId === req.user.id) {
+      return res.status(400).json({ error: 'Nem módosíthatod a saját szerepkörödet.' });
+    }
+
+    const user = await db.getUserById(userId);
+    if (!user) return res.status(404).json({ error: 'Felhasználó nem található.' });
+
+    await db.updateUserRole(userId, role);
+    const updated = await db.getUserById(userId);
+    res.json({ id: updated.id, username: updated.username, email: updated.email, role: updated.role });
   } catch (error) { next(error); }
 });
 
