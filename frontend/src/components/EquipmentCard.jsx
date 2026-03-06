@@ -4,7 +4,7 @@ import axios from 'axios';
 
 const API = 'http://localhost:3000';
 
-const fmt = (d) => d.toISOString().split('T')[0];
+const fmt = (d) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
 const todayDate = () => { const d = new Date(); d.setHours(0,0,0,0); return d; };
 
 function daysInMonth(year, month) { return new Date(year, month + 1, 0).getDate(); }

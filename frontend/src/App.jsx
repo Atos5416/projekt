@@ -13,19 +13,24 @@ import RentalsPage from './pages/RentalsPage';
 
 axios.defaults.baseURL = 'http://localhost:3000/api';
 
-// Token csatolása minden kéréshez
 axios.interceptors.request.use((config) => {
   const token = localStorage.getItem('token');
   if (token) config.headers.Authorization = `Bearer ${token}`;
   return config;
 });
 
-// Csak valóban lejárt/érvénytelen token esetén jelent ki (401)
-// 403-at NEM kezeljük itt – az csak "nincs jogosultság" és nem kijelentkezés
+// Csak akkor jelentkeztetünk ki ha:
+// 1. 401-es hiba jött
+// 2. VAN token a localStorage-ban (tehát be voltunk jelentkezve)
+// 3. NEM a /login vagy /register végpont válaszolta (azok saját hibát kezelnek)
 axios.interceptors.response.use(
   (res) => res,
   (err) => {
-    if (err.response?.status === 401) {
+    const hasToken = !!localStorage.getItem('token');
+    const url = (err.config?.url || '');
+    const isPublicEndpoint = url.endsWith('/login') || url.endsWith('/register');
+
+    if (err.response?.status === 401 && hasToken && !isPublicEndpoint) {
       localStorage.removeItem('token');
       window.location.href = '/login';
     }

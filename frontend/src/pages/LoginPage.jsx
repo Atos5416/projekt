@@ -4,10 +4,10 @@ import axios from 'axios';
 import { LogIn } from 'lucide-react';
 
 function LoginPage({ login }) {
-  const [email, setEmail] = useState('');
+  const [email, setEmail]       = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [error, setError]       = useState('');
+  const [loading, setLoading]   = useState(false);
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
@@ -19,7 +19,14 @@ function LoginPage({ login }) {
       login(res.data.token, res.data.user);
       navigate('/');
     } catch (err) {
-      setError(err.response?.data?.error || 'Nem sikerült bejelentkezni.');
+      // Hibás jelszó vagy email esetén csak a jelszót töröljük, az emailt megtartjuk
+      setPassword('');
+      const status = err.response?.status;
+      if (status === 401 || status === 400) {
+        setError('Hibás email cím vagy jelszó.');
+      } else {
+        setError(err.response?.data?.error || 'Nem sikerült bejelentkezni, próbáld újra.');
+      }
     } finally {
       setLoading(false);
     }
