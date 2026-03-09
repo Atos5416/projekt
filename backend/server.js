@@ -138,7 +138,7 @@ app.post('/api/register', async (req, res, next) => {
 
     const token = jwt.sign({ id: userId, role: 'user' }, JWT_SECRET, { expiresIn: '24h' });
 
-    console.log(`✅ Új felhasználó regisztrálva: ${email}`);
+    console.log(`Új felhasználó regisztrálva: ${email}`);
 
     res.status(201).json({
       token,
@@ -160,19 +160,19 @@ app.post('/api/login', async (req, res, next) => {
 
     const user = await db.getUserByEmail(email);
     if (!user) {
-      console.log(`❌ Sikertelen bejelentkezés: ${email} - Felhasználó nem létezik`);
+      console.log(`Sikertelen bejelentkezés: ${email} - Felhasználó nem létezik`);
       return res.status(401).json({ error: 'Hibás email vagy jelszó' });
     }
 
     const validPassword = await bcrypt.compare(password, user.password);
     if (!validPassword) {
-      console.log(`❌ Sikertelen bejelentkezés: ${email} - Hibás jelszó`);
+      console.log(`Sikertelen bejelentkezés: ${email} - Hibás jelszó`);
       return res.status(401).json({ error: 'Hibás email vagy jelszó' });
     }
 
     const token = jwt.sign({ id: user.id, role: user.role }, JWT_SECRET, { expiresIn: '24h' });
 
-    console.log(`✅ Sikeres bejelentkezés: ${email} (${user.role})`);
+    console.log(`Sikeres bejelentkezés: ${email} (${user.role})`);
 
     res.json({
       token,
@@ -249,7 +249,7 @@ app.post('/api/equipment', authenticateToken, requireAdmin, upload.single('image
     const id = await db.createEquipment(name, description, contact, image);
     const equipment = await db.getEquipmentById(id);
     
-    console.log(`✅ Új gép hozzáadva: ${name} (ID: ${id})`);
+    console.log(`Új gép hozzáadva: ${name} (ID: ${id})`);
     
     res.status(201).json(equipment);
   } catch (error) {
@@ -278,7 +278,7 @@ app.put('/api/equipment/:id', authenticateToken, requireAdmin, upload.single('im
         const oldImagePath = path.join(__dirname, equipment.image);
         if (fs.existsSync(oldImagePath)) {
           fs.unlinkSync(oldImagePath);
-          console.log(`🗑️  Régi kép törölve: ${oldImagePath}`);
+          console.log(`Régi kép törölve: ${oldImagePath}`);
         }
       }
       image = `/uploads/${req.file.filename}`;
@@ -287,7 +287,7 @@ app.put('/api/equipment/:id', authenticateToken, requireAdmin, upload.single('im
     await db.updateEquipment(req.params.id, name, description, contact, image);
     const updated = await db.getEquipmentById(req.params.id);
     
-    console.log(`✅ Gép módosítva: ${name} (ID: ${req.params.id})`);
+    console.log(`Gép módosítva: ${name} (ID: ${req.params.id})`);
     
     res.json(updated);
   } catch (error) {
@@ -309,13 +309,13 @@ app.delete('/api/equipment/:id', authenticateToken, requireAdmin, async (req, re
       const imagePath = path.join(__dirname, equipment.image);
       if (fs.existsSync(imagePath)) {
         fs.unlinkSync(imagePath);
-        console.log(`🗑️  Kép törölve: ${imagePath}`);
+        console.log(`Kép törölve: ${imagePath}`);
       }
     }
 
     await db.deleteEquipment(req.params.id);
     
-    console.log(`🗑️  Gép törölve: ${equipment.name} (ID: ${req.params.id})`);
+    console.log(`Gép törölve: ${equipment.name} (ID: ${req.params.id})`);
     
     res.json({ message: 'Gép sikeresen törölve' });
   } catch (error) {
@@ -579,21 +579,21 @@ db.init()
   .then(() => {
     app.listen(PORT, () => {
       console.log('═══════════════════════════════════════════');
-      console.log('  🚀 NehézGép Bérlés Backend Server');
+      console.log('    NehézGép Bérlés Backend Server');
       console.log('═══════════════════════════════════════════');
-      console.log(`  ✅ Server: http://localhost:${PORT}`);
-      console.log(`  📁 Uploads: ${uploadsDir}`);
-      console.log(`  🔐 Admin: admin@nehezgep.hu / admin123`);
+      console.log(`    Server: http://localhost:${PORT}`);
+      console.log(`    Uploads: ${uploadsDir}`);
+      console.log(`    Admin: admin@nehezgep.hu / admin123`);
       console.log('═══════════════════════════════════════════');
     });
   })
   .catch(err => {
-    console.error('❌ Database initialization error:', err);
+    console.error('Database initialization error:', err);
     process.exit(1);
   });
 
 // Graceful shutdown
 process.on('SIGINT', () => {
-  console.log('\n👋 Server shutting down...');
+  console.log('\nServer shutting down...');
   process.exit(0);
 });

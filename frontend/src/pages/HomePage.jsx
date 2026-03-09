@@ -18,9 +18,9 @@ function HomePage({ user }) {
     <main className="page">
       <div className="container">
         <div className="hero">
-          <p className="hero__eyebrow">Nehézgép bérlés — Baranya megye</p>
+          <p className="hero__eyebrow">Nehézgép bérlés — Békés vármegye</p>
           <h1 className="hero__title">
-            Profi gépek,<br /><em>azonnal elérhető</em>
+            Profi gépek<br /><em>azonnal elérhető</em>
           </h1>
           <p className="hero__sub">
             Kotrók, rakodók, buldózerek — napi és heti bérlési lehetőséggel.
