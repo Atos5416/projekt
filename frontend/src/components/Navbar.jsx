@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Wrench, Menu, X, LogOut, Settings, Users, CalendarCheck } from 'lucide-react';
+import { Wrench, Menu, X, LogOut, Settings, Users, CalendarCheck, UserCircle } from 'lucide-react';
 
 function Navbar({ user, logout }) {
   const [open, setOpen] = useState(false);
@@ -23,43 +23,25 @@ function Navbar({ user, logout }) {
             <div className="navbar__logo-box">
               <Wrench size={18} strokeWidth={2.5} />
             </div>
-            <span className="navbar__brand-text">
-              Nehéz<span>Gép</span>
-            </span>
+            <span className="navbar__brand-text">Nehéz<span>Gép</span></span>
           </Link>
 
           <div className={`navbar__nav${open ? ' open' : ''}`}>
-            <Link
-              to="/"
-              className={`nav-link${isActive('/') ? ' active' : ''}`}
-              onClick={() => setOpen(false)}
-            >
+            <Link to="/" className={`nav-link${isActive('/') ? ' active' : ''}`} onClick={() => setOpen(false)}>
               Gépeink
             </Link>
 
             {user?.role === 'admin' && (
               <>
-                <Link
-                  to="/admin"
-                  className={`nav-link${isActive('/admin') ? ' active' : ''}`}
-                  onClick={() => setOpen(false)}
-                >
+                <Link to="/admin" className={`nav-link${isActive('/admin') ? ' active' : ''}`} onClick={() => setOpen(false)}>
                   <Settings size={14} style={{ marginRight: 4, verticalAlign: 'middle' }} />
                   Gépkezelés
                 </Link>
-                <Link
-                  to="/rentals"
-                  className={`nav-link${isActive('/rentals') ? ' active' : ''}`}
-                  onClick={() => setOpen(false)}
-                >
+                <Link to="/rentals" className={`nav-link${isActive('/rentals') ? ' active' : ''}`} onClick={() => setOpen(false)}>
                   <CalendarCheck size={14} style={{ marginRight: 4, verticalAlign: 'middle' }} />
                   Bérlések
                 </Link>
-                <Link
-                  to="/users"
-                  className={`nav-link${isActive('/users') ? ' active' : ''}`}
-                  onClick={() => setOpen(false)}
-                >
+                <Link to="/users" className={`nav-link${isActive('/users') ? ' active' : ''}`} onClick={() => setOpen(false)}>
                   <Users size={14} style={{ marginRight: 4, verticalAlign: 'middle' }} />
                   Felhasználók
                 </Link>
@@ -67,35 +49,29 @@ function Navbar({ user, logout }) {
             )}
 
             {user ? (
-              <button className="btn btn--ghost btn--sm" onClick={handleLogout}>
-                <LogOut size={14} />
-                Kilépés
-              </button>
+              <>
+                <Link to="/profile" className={`nav-link${isActive('/profile') ? ' active' : ''}`} onClick={() => setOpen(false)}>
+                  <UserCircle size={14} style={{ marginRight: 4, verticalAlign: 'middle' }} />
+                  {user.username || 'Profilom'}
+                </Link>
+                <button className="btn btn--ghost btn--sm" onClick={handleLogout}>
+                  <LogOut size={14} />
+                  Kilépés
+                </button>
+              </>
             ) : (
               <>
-                <Link
-                  to="/login"
-                  className={`nav-link${isActive('/login') ? ' active' : ''}`}
-                  onClick={() => setOpen(false)}
-                >
+                <Link to="/login" className={`nav-link${isActive('/login') ? ' active' : ''}`} onClick={() => setOpen(false)}>
                   Belépés
                 </Link>
-                <Link
-                  to="/register"
-                  className="btn btn--primary btn--sm"
-                  onClick={() => setOpen(false)}
-                >
+                <Link to="/register" className="btn btn--primary btn--sm" onClick={() => setOpen(false)}>
                   Regisztráció
                 </Link>
               </>
             )}
           </div>
 
-          <button
-            className="navbar__toggle"
-            onClick={() => setOpen((v) => !v)}
-            aria-label="Menü"
-          >
+          <button className="navbar__toggle" onClick={() => setOpen(v => !v)} aria-label="Menü">
             {open ? <X size={22} /> : <Menu size={22} />}
           </button>
         </div>

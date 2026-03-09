@@ -14,7 +14,7 @@ const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-producti
 // Middleware
 const corsOptions = {
   origin: ['http://localhost:5173', 'http://localhost:3000', 'http://127.0.0.1:5173'],
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true
 };
@@ -138,7 +138,7 @@ app.post('/api/register', async (req, res, next) => {
 
     const token = jwt.sign({ id: userId, role: 'user' }, JWT_SECRET, { expiresIn: '24h' });
 
-    console.log(`Új felhasználó regisztrálva: ${email}`);
+    console.log(` Új felhasználó regisztrálva: ${email}`);
 
     res.status(201).json({
       token,
@@ -160,19 +160,19 @@ app.post('/api/login', async (req, res, next) => {
 
     const user = await db.getUserByEmail(email);
     if (!user) {
-      console.log(`Sikertelen bejelentkezés: ${email} - Felhasználó nem létezik`);
+      console.log(` Sikertelen bejelentkezés: ${email} - Felhasználó nem létezik`);
       return res.status(401).json({ error: 'Hibás email vagy jelszó' });
     }
 
     const validPassword = await bcrypt.compare(password, user.password);
     if (!validPassword) {
-      console.log(`Sikertelen bejelentkezés: ${email} - Hibás jelszó`);
+      console.log(` Sikertelen bejelentkezés: ${email} - Hibás jelszó`);
       return res.status(401).json({ error: 'Hibás email vagy jelszó' });
     }
 
     const token = jwt.sign({ id: user.id, role: user.role }, JWT_SECRET, { expiresIn: '24h' });
 
-    console.log(`Sikeres bejelentkezés: ${email} (${user.role})`);
+    console.log(` Sikeres bejelentkezés: ${email} (${user.role})`);
 
     res.json({
       token,
@@ -249,7 +249,7 @@ app.post('/api/equipment', authenticateToken, requireAdmin, upload.single('image
     const id = await db.createEquipment(name, description, contact, image);
     const equipment = await db.getEquipmentById(id);
     
-    console.log(`Új gép hozzáadva: ${name} (ID: ${id})`);
+    console.log(` Új gép hozzáadva: ${name} (ID: ${id})`);
     
     res.status(201).json(equipment);
   } catch (error) {
@@ -278,7 +278,7 @@ app.put('/api/equipment/:id', authenticateToken, requireAdmin, upload.single('im
         const oldImagePath = path.join(__dirname, equipment.image);
         if (fs.existsSync(oldImagePath)) {
           fs.unlinkSync(oldImagePath);
-          console.log(`Régi kép törölve: ${oldImagePath}`);
+          console.log(`  Régi kép törölve: ${oldImagePath}`);
         }
       }
       image = `/uploads/${req.file.filename}`;
@@ -287,7 +287,7 @@ app.put('/api/equipment/:id', authenticateToken, requireAdmin, upload.single('im
     await db.updateEquipment(req.params.id, name, description, contact, image);
     const updated = await db.getEquipmentById(req.params.id);
     
-    console.log(`Gép módosítva: ${name} (ID: ${req.params.id})`);
+    console.log(` Gép módosítva: ${name} (ID: ${req.params.id})`);
     
     res.json(updated);
   } catch (error) {
@@ -309,13 +309,13 @@ app.delete('/api/equipment/:id', authenticateToken, requireAdmin, async (req, re
       const imagePath = path.join(__dirname, equipment.image);
       if (fs.existsSync(imagePath)) {
         fs.unlinkSync(imagePath);
-        console.log(`Kép törölve: ${imagePath}`);
+        console.log(`  Kép törölve: ${imagePath}`);
       }
     }
 
     await db.deleteEquipment(req.params.id);
     
-    console.log(`Gép törölve: ${equipment.name} (ID: ${req.params.id})`);
+    console.log(`  Gép törölve: ${equipment.name} (ID: ${req.params.id})`);
     
     res.json({ message: 'Gép sikeresen törölve' });
   } catch (error) {
@@ -357,7 +357,7 @@ app.delete('/api/users/:id', authenticateToken, requireAdmin, async (req, res, n
 
     await db.deleteUser(userId);
     
-    console.log(`🗑️  Felhasználó törölve: ${user.email} (ID: ${userId})`);
+    console.log(`  Felhasználó törölve: ${user.email} (ID: ${userId})`);
     
     res.json({ message: 'Felhasználó sikeresen törölve' });
   } catch (error) {
@@ -387,7 +387,7 @@ app.patch('/api/users/:id/role', authenticateToken, requireAdmin, async (req, re
     await db.updateUserRole(userId, role);
     const updated = await db.getUserById(userId);
     
-    console.log(`✅ Felhasználó szerepkör módosítva: ${user.email} -> ${role}`);
+    console.log(` Felhasználó szerepkör módosítva: ${user.email} -> ${role}`);
     
     res.json({
       id: updated.id,
@@ -400,10 +400,9 @@ app.patch('/api/users/:id/role', authenticateToken, requireAdmin, async (req, re
   }
 });
 
-
 // === RENTAL ROUTES ===
 
-// Saját bérlések
+// Saját bérlések (bejelentkezett felhasználó)
 app.get('/api/rentals/my', authenticateToken, async (req, res, next) => {
   try {
     const rentals = await db.getRentalsByUserId(req.user.id);
@@ -411,18 +410,15 @@ app.get('/api/rentals/my', authenticateToken, async (req, res, next) => {
   } catch (error) { next(error); }
 });
 
-// Egy gép foglaltságai (publikus - naptárhoz)
+// Egy gép foglalt időszakai (publikus)
 app.get('/api/rentals/equipment/:equipmentId', async (req, res, next) => {
   try {
     const rentals = await db.getRentalsByEquipmentId(req.params.equipmentId);
-    const active = rentals.filter(function(r) {
-      return r.status === 'pending' || r.status === 'active';
-    });
-    res.json(active);
+    res.json(rentals.filter(r => r.status === 'pending' || r.status === 'active'));
   } catch (error) { next(error); }
 });
 
-// Összes bérlés (admin)
+// Összes bérlés (csak admin)
 app.get('/api/rentals', authenticateToken, requireAdmin, async (req, res, next) => {
   try {
     const rentals = await db.getAllRentals();
@@ -433,44 +429,23 @@ app.get('/api/rentals', authenticateToken, requireAdmin, async (req, res, next) 
 // Új bérlés létrehozása
 app.post('/api/rentals', authenticateToken, async (req, res, next) => {
   try {
-    const equipment_id = req.body.equipment_id;
-    const start_date   = req.body.start_date;
-    const end_date     = req.body.end_date;
-    const notes        = req.body.notes || null;
-
+    const { equipment_id, start_date, end_date, notes } = req.body;
     if (!equipment_id || !start_date || !end_date) {
       return res.status(400).json({ error: 'Gép, kezdő és záró dátum megadása kötelező.' });
     }
-
-    var start = new Date(start_date);
-    var end   = new Date(end_date);
-    var today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    if (isNaN(start.getTime()) || isNaN(end.getTime())) {
-      return res.status(400).json({ error: 'Érvénytelen dátumformátum.' });
-    }
-    if (start < today) {
-      return res.status(400).json({ error: 'A kezdő dátum nem lehet múltbeli.' });
-    }
-    if (end <= start) {
-      return res.status(400).json({ error: 'A záró dátum a kezdő dátum után kell legyen.' });
-    }
+    const s = new Date(start_date + 'T00:00:00');
+    const e = new Date(end_date   + 'T00:00:00');
+    if (isNaN(s) || isNaN(e)) return res.status(400).json({ error: 'Érvénytelen dátum.' });
+    if (e <= s) return res.status(400).json({ error: 'A záró dátumnak a kezdő után kell lennie.' });
 
     const equipment = await db.getEquipmentById(equipment_id);
-    if (!equipment) {
-      return res.status(404).json({ error: 'Gép nem található.' });
-    }
+    if (!equipment) return res.status(404).json({ error: 'Gép nem található.' });
 
-    const conflict = await db.checkRentalConflict(equipment_id, start_date, end_date);
-    if (conflict) {
-      return res.status(409).json({ error: 'Ez a gép a megadott időszakban már foglalt.' });
-    }
+    const conflict = await db.checkRentalConflict(equipment_id, start_date, end_date, null);
+    if (conflict) return res.status(409).json({ error: 'A gép ebben az időszakban már foglalt.' });
 
     const id = await db.createRental(req.user.id, equipment_id, start_date, end_date, notes);
     const rental = await db.getRentalById(id);
-
-    console.log('Berles letrehozva: #' + id + ' (' + equipment.name + ')');
     res.status(201).json(rental);
   } catch (error) { next(error); }
 });
@@ -481,14 +456,12 @@ app.delete('/api/rentals/:id', authenticateToken, async (req, res, next) => {
     const rental = await db.getRentalById(req.params.id);
     if (!rental) return res.status(404).json({ error: 'Bérlés nem található.' });
 
-    var isOwner = rental.user_id === req.user.id;
-    var isAdmin = req.user.role === 'admin';
+    const isOwner = rental.user_id === req.user.id;
+    const isAdmin = req.user.role === 'admin';
 
-    if (!isOwner && !isAdmin) {
-      return res.status(403).json({ error: 'Nincs jogosultságod.' });
-    }
+    if (!isOwner && !isAdmin) return res.status(403).json({ error: 'Nincs jogosultságod.' });
     if (isOwner && !isAdmin && rental.status !== 'pending') {
-      return res.status(400).json({ error: 'Csak függőben lévő bérlést lehet lemondani.' });
+      return res.status(400).json({ error: 'Csak függőben lévő bérlést tudsz lemondani.' });
     }
 
     await db.deleteRental(req.params.id);
@@ -499,14 +472,12 @@ app.delete('/api/rentals/:id', authenticateToken, async (req, res, next) => {
 // Bérlés státusz módosítása (admin)
 app.post('/api/rentals/:id/status', authenticateToken, requireAdmin, async (req, res, next) => {
   try {
-    const status = req.body.status;
-    var valid = ['pending', 'active', 'completed', 'cancelled'];
-    if (valid.indexOf(status) === -1) {
+    const { status } = req.body;
+    if (!['pending', 'active', 'completed'].includes(status)) {
       return res.status(400).json({ error: 'Érvénytelen státusz.' });
     }
     const rental = await db.getRentalById(req.params.id);
     if (!rental) return res.status(404).json({ error: 'Bérlés nem található.' });
-
     await db.updateRentalStatus(req.params.id, status);
     const updated = await db.getRentalById(req.params.id);
     res.json(updated);
@@ -516,21 +487,61 @@ app.post('/api/rentals/:id/status', authenticateToken, requireAdmin, async (req,
 // Felhasználó szerepkör módosítása (POST - PATCH helyett CORS miatt)
 app.post('/api/users/:id/role', authenticateToken, requireAdmin, async (req, res, next) => {
   try {
-    const role   = req.body.role;
+    const { role } = req.body;
     const userId = parseInt(req.params.id);
-
     if (!['user', 'admin'].includes(role)) {
       return res.status(400).json({ error: 'Érvénytelen szerepkör.' });
     }
     if (userId === req.user.id) {
       return res.status(400).json({ error: 'Nem módosíthatod a saját szerepkörödet.' });
     }
-
     const user = await db.getUserById(userId);
     if (!user) return res.status(404).json({ error: 'Felhasználó nem található.' });
-
     await db.updateUserRole(userId, role);
     const updated = await db.getUserById(userId);
+    res.json({ id: updated.id, username: updated.username, email: updated.email, role: updated.role });
+  } catch (error) { next(error); }
+});
+
+// === PROFIL ROUTES ===
+
+// Saját profil frissítése (felhasználónév és/vagy jelszó)
+app.put('/api/me', authenticateToken, async (req, res, next) => {
+  try {
+    const { username, old_password, new_password } = req.body;
+
+    const user = await db.getUserById(req.user.id);
+    if (!user) return res.status(404).json({ error: 'Felhasználó nem található.' });
+
+    const updates = {};
+
+    if (username && username.trim() && username.trim() !== user.username) {
+      if (username.trim().length < 3) {
+        return res.status(400).json({ error: 'A felhasználónévnek legalább 3 karakter.' });
+      }
+      updates.username = username.trim();
+    }
+
+    if (new_password) {
+      if (!old_password) {
+        return res.status(400).json({ error: 'A jelenlegi jelszó megadása kötelező.' });
+      }
+      const valid = await bcrypt.compare(old_password, user.password);
+      if (!valid) {
+        return res.status(401).json({ error: 'A jelenlegi jelszó helytelen.' });
+      }
+      if (new_password.length < 6) {
+        return res.status(400).json({ error: 'Az új jelszónak legalább 6 karakter.' });
+      }
+      updates.password = await bcrypt.hash(new_password, 10);
+    }
+
+    if (Object.keys(updates).length === 0) {
+      return res.status(400).json({ error: 'Nincs mit frissíteni.' });
+    }
+
+    await db.updateUser(req.user.id, updates);
+    const updated = await db.getUserById(req.user.id);
     res.json({ id: updated.id, username: updated.username, email: updated.email, role: updated.role });
   } catch (error) { next(error); }
 });
@@ -578,22 +589,22 @@ app.use(errorHandler);
 db.init()
   .then(() => {
     app.listen(PORT, () => {
-      console.log('═══════════════════════════════════════════');
-      console.log('    NehézGép Bérlés Backend Server');
-      console.log('═══════════════════════════════════════════');
-      console.log(`    Server: http://localhost:${PORT}`);
-      console.log(`    Uploads: ${uploadsDir}`);
-      console.log(`    Admin: admin@nehezgep.hu / admin123`);
-      console.log('═══════════════════════════════════════════');
+      console.log('');
+      console.log('   NehézGép Bérlés Backend Server');
+      console.log('');
+      console.log(`   Server: http://localhost:${PORT}`);
+      console.log(`   Uploads: ${uploadsDir}`);
+      console.log(`   Admin: admin@nehezgep.hu / admin123`);
+      console.log('');
     });
   })
   .catch(err => {
-    console.error('Database initialization error:', err);
+    console.error(' Database initialization error:', err);
     process.exit(1);
   });
 
 // Graceful shutdown
 process.on('SIGINT', () => {
-  console.log('\nServer shutting down...');
+  console.log('\n Server shutting down...');
   process.exit(0);
 });

@@ -11,6 +11,7 @@ import RegisterPage from './pages/RegisterPage';
 import AdminPage from './pages/AdminPage';
 import UsersPage from './pages/UsersPage';
 import RentalsPage from './pages/RentalsPage';
+import ProfilePage from './pages/ProfilePage';
 
 axios.defaults.baseURL = 'http://localhost:3000/api';
 
@@ -72,6 +73,7 @@ function App() {
         <Route path="/" element={<HomePage user={user} />} />
         <Route path="/login" element={<LoginPage login={login} />} />
         <Route path="/register" element={<RegisterPage login={login} />} />
+        <Route path="/profile" element={<ProfilePage user={user} setUser={setUser} />} />
         <Route path="/admin" element={<AdminPage user={user} />} />
         <Route path="/users" element={<UsersPage user={user} />} />
         <Route path="/rentals" element={<RentalsPage user={user} />} />
