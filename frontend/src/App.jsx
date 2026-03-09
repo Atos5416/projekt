@@ -4,6 +4,7 @@ import axios from 'axios';
 import './App.css';
 
 import Navbar from './components/Navbar';
+import Footer from './components/Footer';
 import HomePage from './pages/HomePage';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
@@ -19,17 +20,12 @@ axios.interceptors.request.use((config) => {
   return config;
 });
 
-// Csak akkor jelentkeztetünk ki ha:
-// 1. 401-es hiba jött
-// 2. VAN token a localStorage-ban (tehát be voltunk jelentkezve)
-// 3. NEM a /login vagy /register végpont válaszolta (azok saját hibát kezelnek)
 axios.interceptors.response.use(
   (res) => res,
   (err) => {
     const hasToken = !!localStorage.getItem('token');
     const url = (err.config?.url || '');
     const isPublicEndpoint = url.endsWith('/login') || url.endsWith('/register');
-
     if (err.response?.status === 401 && hasToken && !isPublicEndpoint) {
       localStorage.removeItem('token');
       window.location.href = '/login';
@@ -45,7 +41,6 @@ function App() {
   useEffect(() => {
     const token = localStorage.getItem('token');
     if (!token) { setLoading(false); return; }
-
     axios.get('/me')
       .then((res) => setUser(res.data))
       .catch(() => localStorage.removeItem('token'))
@@ -81,6 +76,7 @@ function App() {
         <Route path="/users" element={<UsersPage user={user} />} />
         <Route path="/rentals" element={<RentalsPage user={user} />} />
       </Routes>
+      <Footer />
     </Router>
   );
 }
